@@ -80,7 +80,9 @@ typedef struct {
 // if NULL is provided for device, it open's /dev/video0.
 // if fmt is provided it tries to set the format to the specified values.
 //
-// NOTE: fmt WILL be set by this function to the actual format
+// NOTE: fmt WILL be set by this function to a valid format.
+// if the fields width, height or pixelformat are non-zero then it
+// will attempt to set the format using this structure
 bool camera_open(const char *device, Cam_Format *cam_fmt, Cam_IoMethod io);
 bool camera_begin();
 
@@ -98,7 +100,7 @@ bool camera_get_frame_raw(Cam_Buffer *buf, struct timeval *timeout);
 
 bool camera_end();
 bool camera_close();
-void set_min_log_level(Cam_LogLevel level);
+void camera_set_log_level(Cam_LogLevel level);
 
 #ifdef __cplusplus
 }
@@ -116,6 +118,8 @@ static struct {
     const char *dev_name;
     Cam_IoMethod io;
     int fd;
+    bool running;
+
     Cam_Format fmt;
     struct v4l2_capability capability;
 
@@ -129,11 +133,12 @@ static struct {
     .dev_name = "/dev/video0",
     .io = IO_METHOD_MMAP,
     .fd = -1,
+    .running = false,
     .min_log_level = CAM_INFO,
 };
 
 
-void set_min_log_level(Cam_LogLevel level)
+void camera_set_log_level(Cam_LogLevel level)
 {
     _cam_state.min_log_level = level;
 }
@@ -156,6 +161,7 @@ static void cam_log(Cam_LogLevel level, const char *fmt, va_list args)
             fprintf(stream, "[ERROR] ");
             break;
         default:
+            break;
             // nada
     }
 
@@ -214,6 +220,7 @@ static bool _read_frame(Cam_Buffer *cam_buf)
                     /* Could ignore EIO, see spec. */
                 default:
                     cam_error("reading from device");
+                    break;
             }
             return false;
         }
@@ -326,6 +333,11 @@ static bool _init_io_mmap(void)
 
 bool camera_open(const char *device, Cam_Format *cam_fmt, Cam_IoMethod io)
 {
+    if (_cam_state.fd > 0) {
+        cam_warn("Camera is already open");
+        return false;
+    }
+
     struct stat st;
 
     if (!cam_fmt) {
@@ -502,6 +514,11 @@ bool camera_open(const char *device, Cam_Format *cam_fmt, Cam_IoMethod io)
 
 bool camera_begin()
 {
+    if (_cam_state.running) {
+        cam_warn("Camera is already running");
+        return false;
+    }
+
     unsigned int i;
     enum v4l2_buf_type type;
 
@@ -532,6 +549,7 @@ bool camera_begin()
             break;
     }
 
+    _cam_state.running = true;
     return true;
 }
 
@@ -631,8 +649,11 @@ bool camera_get_frame(Cam_Surface *surf, struct timeval *timeout)
 
 #ifndef CAM_NO_COVERT_TO_RGB
     switch (surf->pixelformat) {
-        case V4L2_PIX_FMT_YUYV: yuyv_to_rgb(surf, &buf); break;
+        case V4L2_PIX_FMT_YUYV:
+            yuyv_to_rgb(surf, &buf);
+            break;
         default:
+            break;
             // Not supported
     }
 #endif
@@ -642,6 +663,11 @@ bool camera_get_frame(Cam_Surface *surf, struct timeval *timeout)
 
 bool camera_end()
 {
+    if (!_cam_state.running) {
+        cam_warn("Camera is not running");
+        return false;
+    }
+
     enum v4l2_buf_type type;
 
     switch (_cam_state.io) {
@@ -657,11 +683,17 @@ bool camera_end()
             break;
     }
 
+    _cam_state.running = false;
     return true;
 }
 
 bool camera_close()
 {
+    if (_cam_state.fd < 0) {
+        cam_warn("Camera is not open");
+        return false;
+    }
+
     unsigned int i;
 
     // free the buffers
