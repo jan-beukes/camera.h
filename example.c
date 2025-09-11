@@ -4,14 +4,13 @@
 
 int main(void)
 {
-    Cam_Format fmt = { 0 };
-    fmt.width = 1280;
-    fmt.height = 720;
-    fmt.pixelformat = V4L2_PIX_FMT_MJPEG;
+    Cam_Format fmt = {0};
+    fmt.width = 640, fmt.height = 480;
+    fmt.pixelformat = V4L2_PIX_FMT_YUYV;
 
     // camera_open will set fmt, our values are not guaranteed to work
     if (!camera_open(NULL, &fmt, 0)) return 1;
-    assert(fmt.pixelformat == V4L2_PIX_FMT_MJPEG);
+    assert(fmt.pixelformat == V4L2_PIX_FMT_YUYV);
 
     SetTraceLogLevel(LOG_WARNING);
     InitWindow(fmt.width, fmt.height, "video for linux capture");
@@ -19,18 +18,21 @@ int main(void)
 
     Texture frame;
     while (!WindowShouldClose()) {
-        Cam_Buffer buf;
-        if (camera_get_frame(&buf, NULL)) {
-            // this allocates every frame, ideally we have a single
-            // output buffer where we can write the contents of buf
-            // to for format conversion
-            Image img = LoadImageFromMemory(".JPG", buf.ptr, buf.length);
+        Cam_Surface surf;
+        if (camera_get_frame(&surf, NULL)) {
+            assert(surf.pixelformat == CAM_PIX_FMT_RGB24);
             if (IsTextureValid(frame)) {
-                UpdateTexture(frame, img.data);
+                UpdateTexture(frame, surf.data);
             } else {
+                Image img = {
+                    .data = surf.data,
+                    .width = surf.width,
+                    .height = surf.height,
+                    .format = PIXELFORMAT_UNCOMPRESSED_R8G8B8,
+                    .mipmaps = 1,
+                };
                 frame = LoadTextureFromImage(img);
             }
-            UnloadImage(img);
         }
 
         BeginDrawing();
