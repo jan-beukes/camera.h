@@ -5,7 +5,6 @@
 #define CAMERA_IMPLEMENTATION
 #include "camera.h"
 
-#define ASCII_TABLE " .',:;xlxokXdO0KN"
 #define LUMINANCE(r, g, b) (0.2126f*r + 0.7152f*g + 0.0722f*b)
 
 #define ANSI_HIDE_CURSOR "\x1b[?25l"
@@ -55,8 +54,16 @@ void handle_interupt_signal(int sig)
     exit(0);
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
+    if (argc != 2) {
+        fprintf(stderr, "usage: %s <sorted ascii table>\n\n"
+                "example:\n\t%s \".',:;xlxokXdO0KN\"", argv[0], argv[0]);
+        return 1;
+    }
+    char *ascii_table = argv[1];
+    size_t ascii_table_len = strlen(ascii_table) - 1;
+
     Cam_Format fmt = {0};
     fmt.pixelformat = V4L2_PIX_FMT_YUYV;
     camera_set_log_level(CAM_NONE);
@@ -85,9 +92,8 @@ int main(void)
                 size_t idx = 3 * (pixy*surf.width + pixx);
 
                 unsigned char r = data[idx], g = data[idx+1], b = data[idx+2];
-                size_t ascii_idx = sizeof(ASCII_TABLE) * LUMINANCE(r, g, b)/255;
-                char c = ASCII_TABLE[ascii_idx];
-
+                size_t ascii_idx = ascii_table_len * (unsigned char)LUMINANCE(r, g, b)/255;
+                char c = ascii_table[ascii_idx];
                 printf("\x1b[38;2;%u;%u;%um%c%c", r, g, b, c, c);
             }
             printf("\n");
