@@ -1,18 +1,18 @@
 #include <raylib.h>
 #define CAMERA_IMPLEMENTATION
-#include "camera.h"
+#include "../camera.h"
 
 int main(void)
 {
     Cam_Format fmt = {0};
-    fmt.width = 640, fmt.height = 480;
+    fmt.width = 1280, fmt.height = 720;
     fmt.pixelformat = V4L2_PIX_FMT_YUYV;
 
     // camera_open will set fmt, our values are not guaranteed to work
     if (!camera_open(NULL, &fmt, 0)) return 1;
     assert(fmt.pixelformat == V4L2_PIX_FMT_YUYV);
 
-    SetTraceLogLevel(LOG_WARNING);
+    SetTraceLogLevel(LOG_ERROR);
     InitWindow(fmt.width, fmt.height, "video for linux capture");
     if (!camera_begin()) return 1;
 

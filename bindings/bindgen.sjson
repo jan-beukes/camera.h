@@ -1,0 +1,22 @@
+inputs = [
+    "."
+]
+
+clang_include_paths = [
+    "/usr/lib/clang/21/include/"
+]
+
+import_lib = "camera.o"
+output_folder = "camera"
+package_name = "camera"
+
+remove_type_prefix = "Cam_"
+remove_function_prefix = "camera_"
+
+remove = [
+    "Cam_PixelFormat"
+]
+
+rename = {
+    "Cam_PixelFormat" = "Pixel_Format"
+}

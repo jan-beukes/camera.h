@@ -3,7 +3,7 @@
 #include <signal.h>
 #include <sys/ioctl.h>
 #define CAMERA_IMPLEMENTATION
-#include "camera.h"
+#include "../camera.h"
 
 #define LUMINANCE(r, g, b) (0.2126f*r + 0.7152f*g + 0.0722f*b)
 
@@ -56,18 +56,25 @@ void handle_interupt_signal(int sig)
 
 int main(int argc, char *argv[])
 {
-    if (argc != 2) {
-        fprintf(stderr, "usage: %s <sorted ascii table>\n\n"
+    char *ascii_table = ".',:;xlxokXdO0KN";
+
+    if (argc > 2) {
+        fprintf(stderr, "usage: %s [ascii table]\n\n"
                 "example:\n\t%s \".',:;xlxokXdO0KN\"", argv[0], argv[0]);
         return 1;
+    } else if (argc == 2) {
+        ascii_table = argv[1];
     }
-    char *ascii_table = argv[1];
+
     size_t ascii_table_len = strlen(ascii_table) - 1;
 
     Cam_Format fmt = {0};
     fmt.pixelformat = V4L2_PIX_FMT_YUYV;
     camera_set_log_level(CAM_NONE);
-    camera_open(NULL, &fmt, IO_METHOD_MMAP);
+    if (!camera_open(NULL, &fmt, IO_METHOD_MMAP)) {
+        fprintf(stderr, "Could not open camera\n");
+        return 1;
+    }
 
     update_term_size(fmt);
     signal(SIGINT, handle_interupt_signal);
